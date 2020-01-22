@@ -71,3 +71,11 @@
   notify:
     - restart yace
 
+- name: ensure yace service is started and enabled
+  become: true
+  systemd:
+    daemon_reload: true
+    name: yace
+    state: started
+    enabled: true
+  
