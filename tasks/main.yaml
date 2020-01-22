@@ -1,0 +1,73 @@
+- name: create yace system group
+  group:
+    name: yace
+    system: true
+    state: present
+
+- name: create yace system user
+  user:
+    name: yace
+    system: true
+    shell: "/sbin/nologin"
+    group: yace
+    createhome: false
+    # home: "{{ prometheus_db_dir }}"
+
+- name: download yace binary to local folder
+  become: false
+  get_url:
+    url: "https://github.com/ivx/yet-another-cloudwatch-exporter/releases/download/v{{ yace_version }}/yet-another-cloudwatch-exporter_{{ yace_version }}_Linux_{{ go_arch }}.tar.gz"
+    dest: "/tmp/yace-{{ yace_version }}.linux-{{ go_arch }}.tar.gz"
+    # checksum: "sha256:{{ yace_checksum }}"
+  register: _download_archive
+  until: _download_archive is succeeded
+  retries: 5
+  delay: 2
+  # run_once: true # <-- this canfalset be set due to multi-arch support
+  delegate_to: localhost
+  check_mode: false
+  
+- name: unpack yace binaries
+  become: false
+  unarchive:
+    src: "/tmp/yace-{{ yace_version }}.linux-{{ go_arch }}.tar.gz"
+    dest: "/tmp"
+  delegate_to: localhost
+  check_mode: false
+
+- name: propagate yace binaries
+  copy:
+    src: "/tmp/yace"
+    dest: "/usr/local/bin/yace"
+    mode: 0755
+    owner: root
+    group: root
+
+- name: create yace configuration directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: yace
+    mode: 0770
+  with_items:
+    - "{{ yace_config_dir }}"
+
+- name: propagate yace config
+  copy:
+    content: "{{ yace_config }}"
+    dest: "{{ yace_config_dir }}/yace.yaml"
+    mode: 0770
+    owner: root
+    group: yace
+
+- name: create systemd service unit
+  template:
+    src: yace.service.j2
+    dest: /etc/systemd/system/yace.service
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - restart yace
+

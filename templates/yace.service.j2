@@ -1,0 +1,19 @@
+{{ ansible_managed | comment }}
+
+[Unit]
+Description=YACE
+After=network-online.target
+
+[Service]
+Type=simple
+User=yace
+Group=yace
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStart=/usr/local/bin/yace \
+  -config.file {{ yace_config_dir }}/yace.yaml
+ProtectSystem=full
+SyslogIdentifier=yace
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
